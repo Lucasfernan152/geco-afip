@@ -2,7 +2,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 
 // Cargar variables de entorno
-dotenv.config();
+const rootDir = path.resolve(__dirname, '../..');
+const envPath = path.join(rootDir, '.env');
+dotenv.config({ path: envPath });
 
 export interface AfipConfig {
   port: number;
@@ -26,7 +28,7 @@ const defaultApiKey = process.env.AFIP_API_KEY || (() => {
 })();
 
 const config: AfipConfig = {
-  port: parseInt(process.env.PORT || '3002', 10),
+  port: parseInt(process.env.PORT || '5002', 10),
   environment: isProduction ? 'produccion' : 'homologacion',
   
   // URLs según ambiente
@@ -38,7 +40,7 @@ const config: AfipConfig = {
     ? process.env.AFIP_WSFE_URL_PRODUCCION || 'https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL'
     : process.env.AFIP_WSFE_URL_HOMOLOGACION || 'https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL',
   
-  mainAppUrl: process.env.MAIN_APP_URL || 'http://localhost:3001',
+  mainAppUrl: process.env.MAIN_APP_URL || 'http://localhost:5001',
   logLevel: process.env.LOG_LEVEL || 'info',
   certsPath: path.join(__dirname, '../../certs'),
   apiKey: defaultApiKey,

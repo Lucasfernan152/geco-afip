@@ -1,0 +1,54 @@
+# ============================================
+# Docker Compose - GECO AFIP Service (Docker Hub)
+# ============================================
+# Usa imagen pre-buildeada de Docker Hub
+# NO hace build, solo pull + run
+
+services:
+  afip-service:
+    image: ${DOCKER_USERNAME}/geco-afip:${ENV}-latest
+    container_name: geco-afip-${ENV}
+    restart: unless-stopped
+    ports:
+      - "${PORT}:${PORT}"
+    env_file:
+      - .env
+    volumes:
+      # Certificados AFIP (persistente y crítico)
+      - afip-certs:/app/certs
+      # Cache de tokens AFIP
+      - afip-cache:/app/cache
+      # Logs
+      - afip-logs:/app/logs
+    networks:
+      - afip-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  afip-certs:
+    driver: local
+  afip-cache:
+    driver: local
+  afip-logs:
+    driver: local
+
+# ============================================
+# Network
+# ============================================
+networks:
+  afip-network:
+    driver: bridge
+

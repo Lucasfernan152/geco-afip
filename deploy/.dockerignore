@@ -1,0 +1,48 @@
+# ============================================
+# Docker Ignore - GECO AFIP Service
+# ============================================
+
+# Node modules
+node_modules
+npm-debug.log
+
+# TypeScript source (solo copiar dist)
+src
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Deploy configs (no necesarios en la imagen)
+deploy
+
+# Logs
+logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+*.test.ts
+*.spec.ts
+__tests__
+coverage
+
+# Temporal
+tmp
+temp
+*.tmp
+

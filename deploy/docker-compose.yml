@@ -1,0 +1,61 @@
+# ============================================
+# Docker Compose para AFIP Service - BUILD LOCAL
+# ============================================
+# Uso: docker-compose up -d
+# Para dev: PORT=5002 docker-compose up -d
+
+services:
+  afip-service:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: geco-afip-service
+    restart: unless-stopped
+    ports:
+      - "${PORT:-4002}:${PORT:-4002}"
+    environment:
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-4002}
+      - AFIP_ENVIRONMENT=${AFIP_ENVIRONMENT:-homologacion}
+      - AFIP_API_KEY=${AFIP_API_KEY}
+      - MAIN_APP_URL=${MAIN_APP_URL:-http://localhost:4001}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    volumes:
+      # Certificados AFIP (persistente y crítico)
+      - afip-certs:/app/certs
+      # Cache de tokens AFIP
+      - afip-cache:/app/cache
+      # Logs
+      - afip-logs:/app/logs
+    networks:
+      - afip-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${PORT:-4002}/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  afip-certs:
+    driver: local
+  afip-cache:
+    driver: local
+  afip-logs:
+    driver: local
+
+# ============================================
+# Network
+# ============================================
+networks:
+  afip-network:
+    driver: bridge
+

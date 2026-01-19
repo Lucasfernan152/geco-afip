@@ -60,9 +60,9 @@ jobs:
             # Pull nueva imagen
             docker pull ${{ env.DOCKER_USERNAME }}/geco-afip:${{ env.TAG }}
             
-            # Parar y eliminar container viejo
-            docker stop afip-service geco-afip 2>/dev/null || true
-            docker rm afip-service geco-afip 2>/dev/null || true
+            # Parar y eliminar container viejo (incluye nombres legacy)
+            docker stop afip-service geco-afip geco-afip-service 2>/dev/null || true
+            docker rm afip-service geco-afip geco-afip-service 2>/dev/null || true
             
             # Crear directorios
             mkdir -p ~/afip-certs ~/afip-cache ~/afip-logs

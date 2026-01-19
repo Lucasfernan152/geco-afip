@@ -1,0 +1,93 @@
+name: Deploy AFIP Service
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  DOCKER_USERNAME: lucasfernan152
+  TAG: prod-latest
+  # Puerto (debe coincidir con nginx)
+  AFIP_PORT: 4002
+  # URLs
+  MAIN_APP_URL: http://geco-backend:4001
+  # Red Docker
+  DOCKER_NETWORK: geco-deploy_geco-network
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push AFIP Service
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/Dockerfile
+          push: true
+          tags: ${{ env.DOCKER_USERNAME }}/geco-afip:${{ env.TAG }}
+          platforms: linux/amd64
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # ===== LIMPIEZA INICIAL =====
+            echo "🧹 Limpiando espacio en disco..."
+            docker image prune -af
+            find ~/afip-logs -type f -name "*.log" -mtime +7 -delete 2>/dev/null || true
+            df -h / | tail -1
+            
+            # ===== DEPLOY =====
+            docker network create ${{ env.DOCKER_NETWORK }} 2>/dev/null || true
+            
+            # Pull nueva imagen
+            docker pull ${{ env.DOCKER_USERNAME }}/geco-afip:${{ env.TAG }}
+            
+            # Parar y eliminar container viejo
+            docker stop afip-service geco-afip 2>/dev/null || true
+            docker rm afip-service geco-afip 2>/dev/null || true
+            
+            # Crear directorios
+            mkdir -p ~/afip-certs ~/afip-cache ~/afip-logs
+            
+            # Iniciar AFIP Service
+            docker run -d \
+              --name geco-afip \
+              --network ${{ env.DOCKER_NETWORK }} \
+              --network-alias afip-service \
+              --network-alias geco-afip \
+              --restart unless-stopped \
+              -p ${{ env.AFIP_PORT }}:${{ env.AFIP_PORT }} \
+              -v ~/afip-certs:/app/certs \
+              -v ~/afip-cache:/app/cache \
+              -v ~/afip-logs:/app/logs \
+              -e NODE_ENV=production \
+              -e PORT=${{ env.AFIP_PORT }} \
+              -e AFIP_ENVIRONMENT=${{ secrets.AFIP_ENVIRONMENT }} \
+              -e AFIP_API_KEY=${{ secrets.AFIP_API_KEY }} \
+              -e MAIN_APP_URL=${{ env.MAIN_APP_URL }} \
+              -e LOG_LEVEL=info \
+              ${{ env.DOCKER_USERNAME }}/geco-afip:${{ env.TAG }}
+            
+            # Limpiar imágenes viejas
+            docker image prune -f
+            
+            echo "✅ AFIP Service deployed successfully"
+

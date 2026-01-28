@@ -89,32 +89,32 @@ export interface AfipAuthorizeRequest {
   puntoVenta: number;
   tipoComprobante: number;
   concepto: number;
-  
+
   // Datos del cliente
   tipoDocumento: number;
   numeroDocumento: string;
   condicionIVA: number; // Condición IVA del receptor (obligatorio según RG 5616)
-  
+
   // Fechas (formato YYYYMMDD)
   fechaComprobante: string;
   fechaServicioDesde?: string;
   fechaServicioHasta?: string;
   fechaVencimientoPago?: string;
-  
+
   // Importes
   importeTotal: number;
   importeNeto: number;
   importeExento: number;
   importeIVA: number;
   importeTributos: number;
-  
+
   // Detalle IVA
   iva?: Array<{
     baseImponible: number;
     importe: number;
     id: number; // Tipo de IVA según enum
   }>;
-  
+
   // Otros tributos (opcional)
   tributos?: Array<{
     id: number;
@@ -123,7 +123,7 @@ export interface AfipAuthorizeRequest {
     alicuota: number;
     importe: number;
   }>;
-  
+
   // Comprobantes asociados (para notas de crédito)
   comprobantesAsociados?: Array<{
     tipo: number;
@@ -186,4 +186,3 @@ export interface LastVoucherResponse {
   numeroComprobante?: number;
   error?: string;
 }
-

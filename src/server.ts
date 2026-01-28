@@ -36,11 +36,19 @@ app.use('/afip', authenticateApiKey);
 // AFIP Routes (todas protegidas con API key)
 app.post('/afip/authorize', validateBusinessId, invoiceController.authorizeInvoice);
 app.post('/afip/credit-note', validateBusinessId, invoiceController.generateCreditNote);
-app.get('/afip/last-voucher/:ptoVta/:tipoComp', validateBusinessId, invoiceController.getLastVoucher);
+app.get(
+  '/afip/last-voucher/:ptoVta/:tipoComp',
+  validateBusinessId,
+  invoiceController.getLastVoucher
+);
 app.get('/afip/health', validateBusinessId, invoiceController.healthCheck);
 app.post('/afip/certificate', validateBusinessId, invoiceController.uploadCertificate);
 app.post('/afip/certificate-crt', validateBusinessId, invoiceController.uploadCertificateFromCrt);
-app.post('/afip/certificate-crt-key', validateBusinessId, invoiceController.uploadCertificateFromCrtKey);
+app.post(
+  '/afip/certificate-crt-key',
+  validateBusinessId,
+  invoiceController.uploadCertificateFromCrtKey
+);
 app.get('/afip/certificate-info', validateBusinessId, invoiceController.getCertificateInfo);
 app.delete('/afip/certificate', validateBusinessId, invoiceController.deleteCertificate);
 app.post('/afip/generate-csr', validateBusinessId, invoiceController.generateCSR);
@@ -84,9 +92,10 @@ app.listen(config.port, () => {
   logger.info(`🔐 WSAA URL: ${config.wsaaUrl}`);
   logger.info(`📄 WSFE URL: ${config.wsfeUrl}`);
   logger.info(`📁 Certs path: ${config.certsPath}`);
-  logger.info(`🔑 API Key configured: ${config.apiKey ? 'Yes (length: ' + config.apiKey.length + ')' : 'No - WARNING!'}`);
+  logger.info(
+    `🔑 API Key configured: ${config.apiKey ? 'Yes (length: ' + config.apiKey.length + ')' : 'No - WARNING!'}`
+  );
   logger.info('='.repeat(60));
 });
 
 export default app;
-

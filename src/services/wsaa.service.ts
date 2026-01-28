@@ -21,7 +21,10 @@ export class WSAAService {
    * Obtener ticket de acceso (TA) válido para un business
    * Busca primero en memoria, luego en disco, y solo pide uno nuevo si no existe
    */
-  async getTicketAcceso(businessId: number, service: string = 'wsfe'): Promise<TicketAcceso | null> {
+  async getTicketAcceso(
+    businessId: number,
+    service: string = 'wsfe'
+  ): Promise<TicketAcceso | null> {
     try {
       const cacheKey = `${businessId}_${service}`;
       const cacheFile = path.join(this.cacheDir, `ta_${cacheKey}.json`);
@@ -30,7 +33,9 @@ export class WSAAService {
       if (this.ticketCache.has(cacheKey)) {
         const cached = this.ticketCache.get(cacheKey)!;
         if (this.isTicketValid(cached)) {
-          logger.debug(`Using cached TA from memory for business ${businessId}, service ${service}`);
+          logger.debug(
+            `Using cached TA from memory for business ${businessId}, service ${service}`
+          );
           return cached;
         }
         // Si expiró, remover del cache
@@ -43,18 +48,20 @@ export class WSAAService {
         try {
           const fileContent = fs.readFileSync(cacheFile, 'utf-8');
           const cached = JSON.parse(fileContent);
-          
+
           // Reconstruir objetos Date
           cached.generationTime = new Date(cached.generationTime);
           cached.expirationTime = new Date(cached.expirationTime);
-          
+
           if (this.isTicketValid(cached)) {
-            logger.info(`✓ TA recuperado desde cache de disco para business ${businessId}, service ${service}`);
+            logger.info(
+              `✓ TA recuperado desde cache de disco para business ${businessId}, service ${service}`
+            );
             logger.debug(`TA expires at: ${cached.expirationTime.toISOString()}`);
             this.ticketCache.set(cacheKey, cached);
             return cached;
           }
-          
+
           // Si expiró, eliminar archivo
           logger.info(`TA expired on disk for business ${businessId}, deleting cache file`);
           fs.unlinkSync(cacheFile);
@@ -65,13 +72,15 @@ export class WSAAService {
       }
 
       // 3. Obtener nuevo ticket solo si no existe uno válido
-      logger.info(`No valid TA found, requesting new one for business ${businessId}, service ${service}`);
+      logger.info(
+        `No valid TA found, requesting new one for business ${businessId}, service ${service}`
+      );
       const ticket = await this.requestTicketAcceso(businessId, service);
-      
+
       if (ticket) {
         // Guardar en memoria
         this.ticketCache.set(cacheKey, ticket);
-        
+
         // Guardar en disco
         try {
           if (!fs.existsSync(this.cacheDir)) {
@@ -104,7 +113,10 @@ export class WSAAService {
   /**
    * Solicitar nuevo ticket de acceso a AFIP
    */
-  private async requestTicketAcceso(businessId: number, service: string): Promise<TicketAcceso | null> {
+  private async requestTicketAcceso(
+    businessId: number,
+    service: string
+  ): Promise<TicketAcceso | null> {
     try {
       logger.info(`Requesting new TA for business ${businessId}, service ${service}`);
 
@@ -116,7 +128,7 @@ export class WSAAService {
 
       // Generar TRA (Ticket de Requerimiento de Acceso)
       const tra = this.generateTRA(service);
-      
+
       // Firmar TRA
       const cms = this.signTRA(tra, certInfo.certPath, certInfo.keyPath);
 
@@ -142,21 +154,29 @@ export class WSAAService {
   private generateTRA(service: string): string {
     const now = new Date();
     const uniqueId = Math.floor(now.getTime() / 1000);
-    
+
     // Fecha de generación (ahora)
     const generationTime = now.toISOString();
-    
+
     // Fecha de expiración (12 horas después)
     const expirationTime = new Date(now.getTime() + 12 * 60 * 60 * 1000).toISOString();
 
     const tra = createXml({ version: '1.0', encoding: 'UTF-8' })
       .ele('loginTicketRequest', { version: '1.0' })
-        .ele('header')
-          .ele('uniqueId').txt(uniqueId.toString()).up()
-          .ele('generationTime').txt(generationTime).up()
-          .ele('expirationTime').txt(expirationTime).up()
-        .up()
-        .ele('service').txt(service).up()
+      .ele('header')
+      .ele('uniqueId')
+      .txt(uniqueId.toString())
+      .up()
+      .ele('generationTime')
+      .txt(generationTime)
+      .up()
+      .ele('expirationTime')
+      .txt(expirationTime)
+      .up()
+      .up()
+      .ele('service')
+      .txt(service)
+      .up()
       .up()
       .end({ prettyPrint: true });
 
@@ -180,7 +200,7 @@ export class WSAAService {
       // Crear mensaje PKCS#7
       const p7 = forge.pkcs7.createSignedData();
       p7.content = forge.util.createBuffer(tra, 'utf8');
-      
+
       p7.addCertificate(cert);
       p7.addSigner({
         key: privateKey,
@@ -196,7 +216,7 @@ export class WSAAService {
           },
           {
             type: forge.pki.oids.signingTime,
-            // @ts-ignore - forge types incorrectos, acepta Date object
+            // @ts-expect-error - forge types incorrectos, acepta Date object
             value: new Date(),
           },
         ],
@@ -236,7 +256,7 @@ export class WSAAService {
       const response = await axios.post(config.wsaaUrl, soapRequest, {
         headers: {
           'Content-Type': 'text/xml; charset=utf-8',
-          'SOAPAction': '',
+          SOAPAction: '',
         },
         timeout: 30000, // 30 segundos
       });
@@ -244,19 +264,31 @@ export class WSAAService {
       return response.data;
     } catch (error: any) {
       if (error.response) {
-        const responseData = typeof error.response.data === 'string' 
-          ? error.response.data.substring(0, 1000) 
-          : JSON.stringify(error.response.data).substring(0, 1000);
+        const responseData =
+          typeof error.response.data === 'string'
+            ? error.response.data.substring(0, 1000)
+            : JSON.stringify(error.response.data).substring(0, 1000);
         logger.error('AFIP WSAA HTTP error:', error.response.status, responseData);
-        
+
         // Detectar error de ticket ya existente
-        if (responseData.includes('alreadyAuthenticated') || responseData.includes('ya posee un TA valido')) {
-          logger.warn('⚠️  AFIP indicates TA already exists on their server (cached for up to 12 hours).');
-          logger.info('💡 Note: The existing TA on AFIP server is not accessible to us. This is a limitation of AFIP homologation environment.');
-          throw new Error('AFIP ya tiene un ticket válido cacheado en su servidor. Expirará en máximo 12 horas desde su creación.');
+        if (
+          responseData.includes('alreadyAuthenticated') ||
+          responseData.includes('ya posee un TA valido')
+        ) {
+          logger.warn(
+            '⚠️  AFIP indicates TA already exists on their server (cached for up to 12 hours).'
+          );
+          logger.info(
+            '💡 Note: The existing TA on AFIP server is not accessible to us. This is a limitation of AFIP homologation environment.'
+          );
+          throw new Error(
+            'AFIP ya tiene un ticket válido cacheado en su servidor. Expirará en máximo 12 horas desde su creación.'
+          );
         }
-        
-        throw new Error(`AFIP WSAA HTTP error: ${error.response.status} - ${error.response.statusText}`);
+
+        throw new Error(
+          `AFIP WSAA HTTP error: ${error.response.status} - ${error.response.statusText}`
+        );
       }
       throw error;
     }
@@ -269,7 +301,7 @@ export class WSAAService {
     try {
       // Log para debug en caso de error
       logger.debug('AFIP WSAA raw response:', xmlResponse.substring(0, 500));
-      
+
       const parser = new XMLParser({
         ignoreAttributes: false,
         parseTagValue: true,
@@ -278,16 +310,17 @@ export class WSAAService {
       const result = parser.parse(xmlResponse);
 
       // Navegar por la estructura SOAP
-      const body = result['soap:Envelope']?.[' soap:Body'] || 
-                   result['soapenv:Envelope']?.['soapenv:Body'] ||
-                   result['env:Envelope']?.['env:Body'];
+      const body =
+        result['soap:Envelope']?.[' soap:Body'] ||
+        result['soapenv:Envelope']?.['soapenv:Body'] ||
+        result['env:Envelope']?.['env:Body'];
 
       if (!body) {
         throw new Error('Invalid SOAP response structure');
       }
 
       const loginResponse = body['loginCmsResponse'] || body['ns1:loginCmsResponse'];
-      
+
       if (!loginResponse) {
         // Verificar si hay un fault
         const fault = body['soap:Fault'] || body['soapenv:Fault'] || body['env:Fault'];
@@ -295,21 +328,26 @@ export class WSAAService {
           const faultCode = fault.faultcode || fault['faultcode'] || '';
           const faultString = fault.faultstring || fault['faultstring'] || 'Unknown error';
           const faultDetail = fault.detail || fault['detail'] || '';
-          
+
           // Crear mensaje de error más descriptivo
           let errorMsg = `AFIP WSAA Fault: ${faultString}`;
-          
+
           // Detectar errores comunes
-          if (faultCode.includes('cms.cert.untrusted') || faultString.includes('Certificado no emitido')) {
-            errorMsg = '❌ Certificado no confiable. Posibles causas:\n' +
-                      '• El certificado no fue emitido por AFIP\n' +
-                      '• Estás usando un certificado de homologación en producción (o viceversa)\n' +
-                      '• El certificado no está firmado correctamente\n' +
-                      'Solución: Verifica que el ambiente (.env) coincida con el certificado';
+          if (
+            faultCode.includes('cms.cert.untrusted') ||
+            faultString.includes('Certificado no emitido')
+          ) {
+            errorMsg =
+              '❌ Certificado no confiable. Posibles causas:\n' +
+              '• El certificado no fue emitido por AFIP\n' +
+              '• Estás usando un certificado de homologación en producción (o viceversa)\n' +
+              '• El certificado no está firmado correctamente\n' +
+              'Solución: Verifica que el ambiente (.env) coincida con el certificado';
           } else if (faultString.includes('expired') || faultString.includes('expirado')) {
-            errorMsg = '❌ Certificado expirado. Debes generar un nuevo CSR y solicitar nuevo certificado en AFIP.';
+            errorMsg =
+              '❌ Certificado expirado. Debes generar un nuevo CSR y solicitar nuevo certificado en AFIP.';
           }
-          
+
           logger.error('AFIP Fault details:', { faultCode, faultString, faultDetail });
           throw new Error(errorMsg);
         }
@@ -323,7 +361,8 @@ export class WSAAService {
       }
 
       // Parsear el XML interno (loginReturn contiene otro XML)
-      const taXml = typeof loginReturn === 'string' ? loginReturn : loginReturn['#text'] || loginReturn;
+      const taXml =
+        typeof loginReturn === 'string' ? loginReturn : loginReturn['#text'] || loginReturn;
       const taResult = parser.parse(taXml);
 
       const credentials = taResult['loginTicketResponse']?.['credentials'];
@@ -361,14 +400,16 @@ export class WSAAService {
     if (businessId && service) {
       const cacheKey = `${businessId}_${service}`;
       const cacheFile = path.join(this.cacheDir, `ta_${cacheKey}.json`);
-      
+
       // Limpiar de memoria
       this.ticketCache.delete(cacheKey);
-      
+
       // Limpiar de disco
       if (fs.existsSync(cacheFile)) {
         fs.unlinkSync(cacheFile);
-        logger.info(`✓ Cleared TA cache (memory + disk) for business ${businessId}, service ${service}`);
+        logger.info(
+          `✓ Cleared TA cache (memory + disk) for business ${businessId}, service ${service}`
+        );
       } else {
         logger.info(`✓ Cleared TA cache (memory) for business ${businessId}, service ${service}`);
       }
@@ -380,7 +421,7 @@ export class WSAAService {
           keysToDelete.push(key);
         }
       });
-      keysToDelete.forEach(key => {
+      keysToDelete.forEach((key) => {
         this.ticketCache.delete(key);
         const cacheFile = path.join(this.cacheDir, `ta_${key}.json`);
         if (fs.existsSync(cacheFile)) {
@@ -391,11 +432,11 @@ export class WSAAService {
     } else {
       // Limpiar todo
       this.ticketCache.clear();
-      
+
       // Limpiar todos los archivos del directorio cache
       if (fs.existsSync(this.cacheDir)) {
         const files = fs.readdirSync(this.cacheDir);
-        files.forEach(file => {
+        files.forEach((file) => {
           if (file.startsWith('ta_') && file.endsWith('.json')) {
             fs.unlinkSync(path.join(this.cacheDir, file));
           }
@@ -408,4 +449,3 @@ export class WSAAService {
 
 // Singleton
 export const wsaaService = new WSAAService();
-

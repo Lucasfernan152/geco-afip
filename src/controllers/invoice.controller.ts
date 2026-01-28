@@ -94,7 +94,9 @@ export async function getLastVoucher(req: Request, res: Response) {
     const { businessId, cuit } = req.query;
     const { ptoVta, tipoComp } = req.params;
 
-    logger.info(`[GET /afip/last-voucher] Business: ${businessId}, PtoVta: ${ptoVta}, Tipo: ${tipoComp}`);
+    logger.info(
+      `[GET /afip/last-voucher] Business: ${businessId}, PtoVta: ${ptoVta}, Tipo: ${tipoComp}`
+    );
 
     if (!businessId || !cuit || !ptoVta || !tipoComp) {
       return res.status(400).json({
@@ -387,10 +389,12 @@ export async function clearCache(req: Request, res: Response) {
   try {
     const { businessId, service } = req.query;
 
-    logger.info(`[DELETE /afip/cache] Clearing cache for business: ${businessId}, service: ${service}`);
+    logger.info(
+      `[DELETE /afip/cache] Clearing cache for business: ${businessId}, service: ${service}`
+    );
 
     const wsaaService = new wsaa.WSAAService();
-    
+
     if (businessId && service) {
       wsaaService.clearCache(parseInt(businessId as string), service as string);
       return res.json({
@@ -463,9 +467,10 @@ export async function getCertificateInfo(req: Request, res: Response) {
       });
     }
 
-    const businessIdNum = typeof businessId === 'number' ? businessId : parseInt(businessId as string);
+    const businessIdNum =
+      typeof businessId === 'number' ? businessId : parseInt(businessId as string);
     const certInfo = await certificateService.getCertificateInfo(businessIdNum);
-    
+
     if (!certInfo) {
       return res.json({
         success: false,
@@ -508,11 +513,11 @@ export async function deleteCertificate(req: Request, res: Response) {
     const fs = require('fs');
     const path = require('path');
     const config = require('../config/config').default;
-    
+
     const certDir = path.join(config.certsPath, businessId.toString());
-    
+
     logger.info(`[DELETE] Looking for certificate directory: ${certDir}`);
-    
+
     if (fs.existsSync(certDir)) {
       // Eliminar todos los archivos del directorio
       const files = fs.readdirSync(certDir);
@@ -521,11 +526,11 @@ export async function deleteCertificate(req: Request, res: Response) {
         fs.unlinkSync(filePath);
         logger.info(`[DELETE] Deleted file: ${filePath}`);
       }
-      
+
       // Eliminar el directorio
       fs.rmdirSync(certDir);
       logger.info(`[DELETE] Deleted directory: ${certDir}`);
-      
+
       return res.json({
         success: true,
         message: 'Certificado y clave privada eliminados correctamente',

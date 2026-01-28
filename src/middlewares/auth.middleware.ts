@@ -10,7 +10,7 @@ export function authenticateApiKey(req: Request, res: Response, next: NextFuncti
   try {
     // Obtener API key del header
     const apiKey = req.headers['x-api-key'] as string;
-    
+
     // Verificar que existe
     if (!apiKey) {
       logger.warn(`[Auth] Request sin API key desde ${req.ip} a ${req.path}`);
@@ -19,7 +19,7 @@ export function authenticateApiKey(req: Request, res: Response, next: NextFuncti
         error: 'API key no proporcionado',
       });
     }
-    
+
     // Verificar que coincide con el configurado
     if (apiKey !== config.apiKey) {
       logger.warn(`[Auth] API key inválido desde ${req.ip} a ${req.path}`);
@@ -28,7 +28,7 @@ export function authenticateApiKey(req: Request, res: Response, next: NextFuncti
         error: 'API key inválido',
       });
     }
-    
+
     // API key válido, continuar
     logger.debug(`[Auth] API key válido para ${req.path}`);
     next();
@@ -49,7 +49,7 @@ export function validateBusinessId(req: Request, res: Response, next: NextFuncti
   try {
     // Obtener businessId del body o query (con optional chaining para evitar errores)
     const businessId = req.query?.businessId || req.body?.businessId;
-    
+
     if (!businessId) {
       logger.warn(`[Auth] Request sin businessId desde ${req.ip} a ${req.path}`);
       return res.status(400).json({
@@ -57,9 +57,10 @@ export function validateBusinessId(req: Request, res: Response, next: NextFuncti
         error: 'businessId no proporcionado',
       });
     }
-    
+
     // Validar que sea un número
-    const businessIdNum = typeof businessId === 'number' ? businessId : parseInt(businessId as string);
+    const businessIdNum =
+      typeof businessId === 'number' ? businessId : parseInt(businessId as string);
     if (isNaN(businessIdNum) || businessIdNum <= 0) {
       logger.warn(`[Auth] businessId inválido: ${businessId} desde ${req.ip}`);
       return res.status(400).json({
@@ -67,10 +68,10 @@ export function validateBusinessId(req: Request, res: Response, next: NextFuncti
         error: 'businessId inválido',
       });
     }
-    
+
     // Guardar en req para uso posterior
     (req as any).businessId = businessIdNum;
-    
+
     logger.debug(`[Auth] businessId validado: ${businessIdNum}`);
     next();
   } catch (error: any) {
@@ -82,4 +83,3 @@ export function validateBusinessId(req: Request, res: Response, next: NextFuncti
     });
   }
 }
-

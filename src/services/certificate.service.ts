@@ -36,7 +36,7 @@ export class CertificateService {
       }
 
       const infoData = JSON.parse(fs.readFileSync(infoPath, 'utf-8'));
-      
+
       const certInfo: CertificateInfo = {
         businessId,
         cuit: infoData.cuit,
@@ -82,7 +82,7 @@ export class CertificateService {
       // Extraer certificado y clave privada
       const bags = p12.getBags({ bagType: forge.pki.oids.certBag });
       const certBag = bags[forge.pki.oids.certBag]?.[0];
-      
+
       const keyBags = p12.getBags({ bagType: forge.pki.oids.pkcs8ShroudedKeyBag });
       const keyBag = keyBags[forge.pki.oids.pkcs8ShroudedKeyBag]?.[0];
 
@@ -118,7 +118,7 @@ export class CertificateService {
 
       fs.writeFileSync(certPath, certPem, 'utf-8');
       fs.writeFileSync(keyPath, keyPem, 'utf-8');
-      
+
       // Guardar información
       const info = {
         businessId,
@@ -128,7 +128,7 @@ export class CertificateService {
         password: password, // Guardamos el password encriptado (en producción usar un vault)
         createdAt: new Date().toISOString(),
       };
-      
+
       fs.writeFileSync(infoPath, JSON.stringify(info, null, 2), 'utf-8');
 
       // Limpiar cache
@@ -147,13 +147,17 @@ export class CertificateService {
   /**
    * Generar CSR (Certificate Signing Request)
    */
-  async generateCSR(businessId: number, cuit: string, organizationName: string): Promise<string | null> {
+  async generateCSR(
+    businessId: number,
+    cuit: string,
+    organizationName: string
+  ): Promise<string | null> {
     try {
       logger.info(`Generating CSR for business ${businessId}, CUIT: ${cuit}`);
 
       // Generar par de claves
       const keys = forge.pki.rsa.generateKeyPair(2048);
-      
+
       // Crear CSR
       const csr = forge.pki.createCertificationRequest();
       csr.publicKey = keys.publicKey;
@@ -178,7 +182,7 @@ export class CertificateService {
 
       const keyPath = path.join(certDir, 'key.pem');
       const csrPath = path.join(certDir, 'request.csr');
-      
+
       fs.writeFileSync(keyPath, keyPem, 'utf-8');
       fs.writeFileSync(csrPath, csrPem, 'utf-8');
 
@@ -205,7 +209,7 @@ export class CertificateService {
       logger.info(`Saving certificate from CRT + KEY for business ${businessId}`);
 
       const certDir = path.join(config.certsPath, businessId.toString());
-      
+
       // Crear directorio si no existe
       if (!fs.existsSync(certDir)) {
         fs.mkdirSync(certDir, { recursive: true });
@@ -231,7 +235,9 @@ export class CertificateService {
           logger.info('Certificate parsed as DER and converted to PEM');
         } catch (derError: any) {
           logger.error('Failed to parse certificate:', derError.message);
-          throw new Error('No se pudo leer el certificado. Asegúrate de que sea un archivo .crt válido de AFIP.');
+          throw new Error(
+            'No se pudo leer el certificado. Asegúrate de que sea un archivo .crt válido de AFIP.'
+          );
         }
       }
 
@@ -245,28 +251,40 @@ export class CertificateService {
         logger.info('Private key parsed as PEM');
       } catch (pemError) {
         logger.error('Failed to parse private key as PEM');
-        throw new Error('No se pudo leer la clave privada. Asegúrate de que sea un archivo .key válido en formato PEM.');
+        throw new Error(
+          'No se pudo leer la clave privada. Asegúrate de que sea un archivo .key válido en formato PEM.'
+        );
       }
 
       // Log del subject completo para debugging
-      logger.info('Certificate subject attributes:', JSON.stringify(certificate.subject.attributes.map((a: any) => ({ 
-        type: a.type, 
-        name: a.name, 
-        shortName: a.shortName,
-        value: a.value 
-      }))));
+      logger.info(
+        'Certificate subject attributes:',
+        JSON.stringify(
+          certificate.subject.attributes.map((a: any) => ({
+            type: a.type,
+            name: a.name,
+            shortName: a.shortName,
+            value: a.value,
+          }))
+        )
+      );
 
       // También buscar en el issuer
-      logger.info('Certificate issuer attributes:', JSON.stringify(certificate.issuer.attributes.map((a: any) => ({ 
-        type: a.type, 
-        name: a.name, 
-        shortName: a.shortName,
-        value: a.value 
-      }))));
+      logger.info(
+        'Certificate issuer attributes:',
+        JSON.stringify(
+          certificate.issuer.attributes.map((a: any) => ({
+            type: a.type,
+            name: a.name,
+            shortName: a.shortName,
+            value: a.value,
+          }))
+        )
+      );
 
       // Extraer CUIT del certificado
       let cuit: string | null = null;
-      
+
       // 1. Intentar obtener del serialNumber field del subject
       const serialNumberField = certificate.subject.getField('serialNumber');
       if (serialNumberField && serialNumberField.value) {
@@ -279,10 +297,11 @@ export class CertificateService {
       } else {
         logger.info('No serialNumber field found in certificate subject');
       }
-      
+
       // 2. Buscar en CN (Common Name)
       if (!cuit) {
-        const cnField = certificate.subject.getField('CN') || certificate.subject.getField('commonName');
+        const cnField =
+          certificate.subject.getField('CN') || certificate.subject.getField('commonName');
         if (cnField && cnField.value) {
           logger.info(`CN field found: "${cnField.value}"`);
           const cuitMatch = cnField.value.match(/\d{11}/);
@@ -294,13 +313,22 @@ export class CertificateService {
           logger.info('No CN/commonName field found in certificate');
         }
       }
-      
+
       // 3. Buscar en todos los atributos del subject por shortName conocidos
       if (!cuit) {
-        const knownCuitFields = ['serialNumber', 'CN', 'commonName', 'UID', 'userId', 'SERIALNUMBER', 'O', 'organizationName'];
+        const knownCuitFields = [
+          'serialNumber',
+          'CN',
+          'commonName',
+          'UID',
+          'userId',
+          'SERIALNUMBER',
+          'O',
+          'organizationName',
+        ];
         for (const fieldName of knownCuitFields) {
-          const field = certificate.subject.attributes.find((a: any) => 
-            a.shortName === fieldName || a.name === fieldName
+          const field = certificate.subject.attributes.find(
+            (a: any) => a.shortName === fieldName || a.name === fieldName
           );
           if (field && field.value) {
             logger.info(`Found field ${fieldName}: "${field.value}"`);
@@ -313,7 +341,7 @@ export class CertificateService {
           }
         }
       }
-      
+
       // 4. Buscar en el subject completo como último recurso
       if (!cuit) {
         const subjectStr = certificate.subject.attributes
@@ -339,12 +367,17 @@ export class CertificateService {
           logger.info(`CUIT extraído del issuer: ${cuit}`);
         }
       }
-      
+
       if (!cuit) {
-        logger.error('No CUIT found in certificate. Full subject:', JSON.stringify(certificate.subject.attributes));
-        throw new Error('No se pudo extraer el CUIT del certificado. El certificado no contiene un CUIT válido de 11 dígitos.');
+        logger.error(
+          'No CUIT found in certificate. Full subject:',
+          JSON.stringify(certificate.subject.attributes)
+        );
+        throw new Error(
+          'No se pudo extraer el CUIT del certificado. El certificado no contiene un CUIT válido de 11 dígitos.'
+        );
       }
-      
+
       logger.info(`✓ CUIT final extraído: ${cuit}`);
 
       // Extraer fechas de validez
@@ -362,12 +395,9 @@ export class CertificateService {
       logger.info(`Private key saved to: ${keyPath}`);
 
       // Crear archivo .pfx para compatibilidad
-      const p12Asn1 = forge.pkcs12.toPkcs12Asn1(
-        privateKey,
-        [certificate],
-        password,
-        { algorithm: '3des' }
-      );
+      const p12Asn1 = forge.pkcs12.toPkcs12Asn1(privateKey, [certificate], password, {
+        algorithm: '3des',
+      });
       const p12Der = forge.asn1.toDer(p12Asn1).getBytes();
       const pfxPath = path.join(certDir, 'cert.pfx');
       fs.writeFileSync(pfxPath, p12Der, 'binary');
@@ -384,7 +414,7 @@ export class CertificateService {
         createdAt: new Date().toISOString(),
         uploadMethod: 'crt-key',
       };
-      
+
       fs.writeFileSync(infoPath, JSON.stringify(info, null, 2), 'utf-8');
       logger.info(`Certificate info saved to: ${infoPath}`);
 
@@ -392,11 +422,16 @@ export class CertificateService {
       this.certsCache.delete(businessId);
 
       logger.info(`✓ Certificate and key saved successfully for business ${businessId}`);
-      logger.info(`✓ Certificate valid from ${validFrom.toISOString()} to ${validTo.toISOString()}`);
+      logger.info(
+        `✓ Certificate valid from ${validFrom.toISOString()} to ${validTo.toISOString()}`
+      );
 
       return true;
     } catch (error: any) {
-      logger.error(`Error saving certificate from CRT + KEY for business ${businessId}:`, error.message);
+      logger.error(
+        `Error saving certificate from CRT + KEY for business ${businessId}:`,
+        error.message
+      );
       throw error;
     }
   }
@@ -414,7 +449,7 @@ export class CertificateService {
       logger.info(`Saving certificate from CRT for business ${businessId}`);
 
       const certDir = path.join(config.certsPath, businessId.toString());
-      
+
       // Crear directorio si no existe
       if (!fs.existsSync(certDir)) {
         fs.mkdirSync(certDir, { recursive: true });
@@ -440,27 +475,39 @@ export class CertificateService {
           logger.info('Certificate parsed as DER and converted to PEM');
         } catch (derError: any) {
           logger.error('Failed to parse certificate:', derError.message);
-          throw new Error('No se pudo leer el certificado. Asegúrate de que sea un archivo .crt válido de AFIP.');
+          throw new Error(
+            'No se pudo leer el certificado. Asegúrate de que sea un archivo .crt válido de AFIP.'
+          );
         }
       }
 
       // Log del subject completo para debugging
-      logger.info('Certificate subject attributes:', JSON.stringify(certificate.subject.attributes.map((a: any) => ({ 
-        type: a.type, 
-        name: a.name, 
-        shortName: a.shortName,
-        value: a.value 
-      }))));
+      logger.info(
+        'Certificate subject attributes:',
+        JSON.stringify(
+          certificate.subject.attributes.map((a: any) => ({
+            type: a.type,
+            name: a.name,
+            shortName: a.shortName,
+            value: a.value,
+          }))
+        )
+      );
 
       // También buscar en extensiones y otros campos del certificado
       logger.info('Certificate serial number (raw):', certificate.serialNumber);
       if (certificate.extensions) {
-        logger.info('Certificate extensions:', JSON.stringify(certificate.extensions.map((e: any) => ({ name: e.name, id: e.id, value: e.value }))));
+        logger.info(
+          'Certificate extensions:',
+          JSON.stringify(
+            certificate.extensions.map((e: any) => ({ name: e.name, id: e.id, value: e.value }))
+          )
+        );
       }
 
       // Usar el CUIT proporcionado o extraerlo del certificado
       let cuit: string | null = providedCuit || null;
-      
+
       if (cuit) {
         // Validar que el CUIT proporcionado tenga 11 dígitos
         const cleanCuit = cuit.replace(/[^0-9]/g, '');
@@ -472,7 +519,7 @@ export class CertificateService {
       } else {
         // Intentar extraer CUIT del certificado
         // El CUIT puede estar en varios campos según el tipo de certificado de AFIP
-        
+
         // 1. Intentar obtener del serialNumber field del subject
         const serialNumberField = certificate.subject.getField('serialNumber');
         if (serialNumberField && serialNumberField.value) {
@@ -485,10 +532,11 @@ export class CertificateService {
         } else {
           logger.info('No serialNumber field found in certificate subject');
         }
-        
+
         // 2. Buscar en CN (Common Name)
         if (!cuit) {
-          const cnField = certificate.subject.getField('CN') || certificate.subject.getField('commonName');
+          const cnField =
+            certificate.subject.getField('CN') || certificate.subject.getField('commonName');
           if (cnField && cnField.value) {
             logger.info(`CN field found: "${cnField.value}"`);
             const cuitMatch = cnField.value.match(/\d{11}/);
@@ -500,13 +548,20 @@ export class CertificateService {
             logger.info('No CN/commonName field found in certificate');
           }
         }
-        
+
         // 3. Buscar en todos los atributos del subject por shortName conocidos
         if (!cuit) {
-          const knownCuitFields = ['serialNumber', 'CN', 'commonName', 'UID', 'userId', 'SERIALNUMBER'];
+          const knownCuitFields = [
+            'serialNumber',
+            'CN',
+            'commonName',
+            'UID',
+            'userId',
+            'SERIALNUMBER',
+          ];
           for (const fieldName of knownCuitFields) {
-            const field = certificate.subject.attributes.find((a: any) => 
-              a.shortName === fieldName || a.name === fieldName
+            const field = certificate.subject.attributes.find(
+              (a: any) => a.shortName === fieldName || a.name === fieldName
             );
             if (field && field.value) {
               logger.info(`Found field ${fieldName}: "${field.value}"`);
@@ -519,7 +574,7 @@ export class CertificateService {
             }
           }
         }
-        
+
         // 4. Buscar en el subject completo como último recurso
         if (!cuit) {
           const subjectStr = certificate.subject.attributes
@@ -532,19 +587,24 @@ export class CertificateService {
             logger.info(`CUIT extraído del subject completo: ${cuit}`);
           }
         }
-        
+
         if (!cuit) {
-          logger.error('No CUIT found in certificate. Full subject:', JSON.stringify(certificate.subject.attributes));
-          throw new Error('No se pudo extraer el CUIT del certificado. El certificado no contiene un CUIT válido de 11 dígitos. Por favor proporciona el CUIT manualmente.');
+          logger.error(
+            'No CUIT found in certificate. Full subject:',
+            JSON.stringify(certificate.subject.attributes)
+          );
+          throw new Error(
+            'No se pudo extraer el CUIT del certificado. El certificado no contiene un CUIT válido de 11 dígitos. Por favor proporciona el CUIT manualmente.'
+          );
         }
-        
+
         logger.info(`✓ CUIT extraído del certificado: ${cuit}`);
       }
 
       // Verificar si existe una clave privada
       const keyPath = path.join(certDir, 'key.pem');
       let privateKey;
-      
+
       if (fs.existsSync(keyPath)) {
         // Usar la clave privada existente
         logger.info('Using existing private key');
@@ -569,12 +629,9 @@ export class CertificateService {
       fs.writeFileSync(certPath, certPem, 'utf-8');
 
       // Crear archivo .pfx para compatibilidad
-      const p12Asn1 = forge.pkcs12.toPkcs12Asn1(
-        privateKey,
-        [certificate],
-        password,
-        { algorithm: '3des' }
-      );
+      const p12Asn1 = forge.pkcs12.toPkcs12Asn1(privateKey, [certificate], password, {
+        algorithm: '3des',
+      });
       const p12Der = forge.asn1.toDer(p12Asn1).getBytes();
       const pfxPath = path.join(certDir, 'cert.pfx');
       fs.writeFileSync(pfxPath, p12Der, 'binary');
@@ -590,7 +647,7 @@ export class CertificateService {
         createdAt: new Date().toISOString(),
         uploadMethod: 'crt', // Marca que se subió como CRT
       };
-      
+
       fs.writeFileSync(infoPath, JSON.stringify(info, null, 2), 'utf-8');
 
       // Limpiar cache
@@ -611,7 +668,7 @@ export class CertificateService {
    */
   async isCertificateValid(businessId: number): Promise<boolean> {
     const certInfo = await this.getCertificateInfo(businessId);
-    
+
     if (!certInfo || !certInfo.validTo) {
       return false;
     }
@@ -637,4 +694,3 @@ export class CertificateService {
 
 // Singleton
 export const certificateService = new CertificateService();
-

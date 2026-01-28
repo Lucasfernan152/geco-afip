@@ -44,26 +44,42 @@ export class WSFEService {
    */
   async authorizeInvoice(request: AfipAuthorizeRequest): Promise<AfipAuthorizeResponse> {
     try {
-      logger.info(`Authorizing invoice for business ${request.businessId}, CUIT: ${request.cuit}, Tipo: ${request.tipoComprobante}`);
-      logger.info(`[DEBUG] Request condicionIVA: ${request.condicionIVA} (type: ${typeof request.condicionIVA})`);
+      logger.info(
+        `Authorizing invoice for business ${request.businessId}, CUIT: ${request.cuit}, Tipo: ${request.tipoComprobante}`
+      );
+      logger.info(
+        `[DEBUG] Request condicionIVA: ${request.condicionIVA} (type: ${typeof request.condicionIVA})`
+      );
       logger.info(`[DEBUG] Full request: ${JSON.stringify(request, null, 2)}`);
 
       // [DEBUG] Consultar tipos de IVA válidos (alícuotas)
       const condicionesResult = await this.getCondicionesIVA(request.businessId, request.cuit);
       if (condicionesResult.success) {
-        logger.info('[DEBUG] Tipos IVA (alícuotas) válidas desde AFIP:', JSON.stringify(condicionesResult.data, null, 2));
+        logger.info(
+          '[DEBUG] Tipos IVA (alícuotas) válidas desde AFIP:',
+          JSON.stringify(condicionesResult.data, null, 2)
+        );
       }
 
       // [DEBUG] Consultar condiciones IVA del receptor válidas
-      const condicionesReceptorResult = await this.getCondicionesIVAReceptor(request.businessId, request.cuit);
+      const condicionesReceptorResult = await this.getCondicionesIVAReceptor(
+        request.businessId,
+        request.cuit
+      );
       if (condicionesReceptorResult.success) {
-        logger.info('[DEBUG] Condiciones IVA del receptor válidas desde AFIP:', JSON.stringify(condicionesReceptorResult.data, null, 2));
+        logger.info(
+          '[DEBUG] Condiciones IVA del receptor válidas desde AFIP:',
+          JSON.stringify(condicionesReceptorResult.data, null, 2)
+        );
       }
 
       // [DEBUG] Consultar tipos de datos opcionales disponibles
       const tiposOpcionalesResult = await this.getTiposOpcionales(request.businessId, request.cuit);
       if (tiposOpcionalesResult.success) {
-        logger.info('[DEBUG] Tipos de datos opcionales disponibles desde AFIP:', JSON.stringify(tiposOpcionalesResult.data, null, 2));
+        logger.info(
+          '[DEBUG] Tipos de datos opcionales disponibles desde AFIP:',
+          JSON.stringify(tiposOpcionalesResult.data, null, 2)
+        );
       }
 
       // Validar certificado
@@ -216,7 +232,9 @@ export class WSFEService {
    */
   async getCondicionesIVAReceptor(businessId: number, cuit: string): Promise<any> {
     try {
-      logger.info(`[DEBUG] Getting condiciones IVA del receptor from AFIP for business ${businessId}`);
+      logger.info(
+        `[DEBUG] Getting condiciones IVA del receptor from AFIP for business ${businessId}`
+      );
 
       // Obtener ticket de acceso
       const ta = await wsaaService.getTicketAcceso(businessId, 'wsfe');
@@ -238,7 +256,10 @@ export class WSFEService {
 
       logger.info('[DEBUG] Calling FEParamGetCondicionIvaReceptor');
       const [result] = await client.FEParamGetCondicionIvaReceptorAsync(request);
-      logger.info('[DEBUG] FEParamGetCondicionIvaReceptor response:', JSON.stringify(result, null, 2));
+      logger.info(
+        '[DEBUG] FEParamGetCondicionIvaReceptor response:',
+        JSON.stringify(result, null, 2)
+      );
 
       return { success: true, data: result };
     } catch (error: any) {
@@ -288,7 +309,9 @@ export class WSFEService {
    */
   async getCondicionesIVA(businessId: number, cuit: string): Promise<any> {
     try {
-      logger.info(`[DEBUG] Getting condiciones IVA (alícuotas) from AFIP for business ${businessId}`);
+      logger.info(
+        `[DEBUG] Getting condiciones IVA (alícuotas) from AFIP for business ${businessId}`
+      );
 
       // Obtener ticket de acceso
       const ta = await wsaaService.getTicketAcceso(businessId, 'wsfe');
@@ -358,7 +381,7 @@ export class WSFEService {
         const errors = Array.isArray(result.FECompUltimoAutorizadoResult.Errors.Err)
           ? result.FECompUltimoAutorizadoResult.Errors.Err
           : [result.FECompUltimoAutorizadoResult.Errors.Err];
-        
+
         const errorMsg = errors.map((e: any) => `${e.Code}: ${e.Msg}`).join(', ');
         return {
           success: false,
@@ -387,11 +410,13 @@ export class WSFEService {
    * Construir detalle del comprobante para AFIP
    */
   private buildFeDetReq(request: AfipAuthorizeRequest, numeroComprobante: number): any {
-    logger.info(`[DEBUG] Building FeDetReq with condicionIVA: ${request.condicionIVA} (type: ${typeof request.condicionIVA})`);
-    
+    logger.info(
+      `[DEBUG] Building FeDetReq with condicionIVA: ${request.condicionIVA} (type: ${typeof request.condicionIVA})`
+    );
+
     // Para Facturas C (tipo 11, 13): no se discrimina IVA
     const esFacturaC = [11, 13].includes(request.tipoComprobante);
-    
+
     const feDetReq: any = {
       Concepto: request.concepto,
       DocTipo: request.tipoDocumento,
@@ -409,8 +434,10 @@ export class WSFEService {
       MonCotiz: 1,
       CondicionIVAReceptorId: request.condicionIVA, // Obligatorio según RG 5616
     };
-    
-    logger.info(`[DEBUG] Building FeDetReq with CondicionIVAReceptorId: ${request.condicionIVA}, esFacturaC: ${esFacturaC}`);
+
+    logger.info(
+      `[DEBUG] Building FeDetReq with CondicionIVAReceptorId: ${request.condicionIVA}, esFacturaC: ${esFacturaC}`
+    );
 
     // Fechas de servicio (solo para concepto servicios o productos y servicios)
     if (request.concepto !== 1) {
@@ -422,7 +449,7 @@ export class WSFEService {
     // IVA: solo para Facturas A y B, NO para Facturas C
     if (!esFacturaC && request.iva && request.iva.length > 0) {
       feDetReq.Iva = {
-        AlicIva: request.iva.map(i => ({
+        AlicIva: request.iva.map((i) => ({
           Id: i.id,
           BaseImp: i.baseImponible.toFixed(2),
           Importe: i.importe.toFixed(2),
@@ -433,7 +460,7 @@ export class WSFEService {
     // Tributos
     if (request.tributos && request.tributos.length > 0) {
       feDetReq.Tributos = {
-        Tributo: request.tributos.map(t => ({
+        Tributo: request.tributos.map((t) => ({
           Id: t.id,
           Desc: t.descripcion,
           BaseImp: t.baseImponible.toFixed(2),
@@ -446,7 +473,7 @@ export class WSFEService {
     // Comprobantes asociados (para notas de crédito)
     if (request.comprobantesAsociados && request.comprobantesAsociados.length > 0) {
       feDetReq.CbtesAsoc = {
-        CbteAsoc: request.comprobantesAsociados.map(c => ({
+        CbteAsoc: request.comprobantesAsociados.map((c) => ({
           Tipo: c.tipo,
           PtoVta: c.puntoVenta,
           Nro: c.numero,
@@ -461,7 +488,11 @@ export class WSFEService {
   /**
    * Parsear respuesta de autorización
    */
-  private parseAuthorizeResponse(result: any, numeroComprobante: number, tipoComprobante: number): AfipAuthorizeResponse {
+  private parseAuthorizeResponse(
+    result: any,
+    numeroComprobante: number,
+    tipoComprobante: number
+  ): AfipAuthorizeResponse {
     try {
       const feResp = result.FECAESolicitarResult;
 
@@ -477,7 +508,7 @@ export class WSFEService {
 
       // Obtener detalle del comprobante
       const feDetResp = feResp.FeDetResp?.FECAEDetResponse;
-      
+
       if (!feDetResp) {
         return {
           success: false,
@@ -500,9 +531,10 @@ export class WSFEService {
           success: false,
           resultado: detalle.Resultado,
           observaciones: observaciones.map((o: any) => ({ code: o.Code, msg: o.Msg })),
-          error: observaciones.length > 0
-            ? observaciones.map((o: any) => `${o.Code}: ${o.Msg}`).join(', ')
-            : 'Comprobante rechazado',
+          error:
+            observaciones.length > 0
+              ? observaciones.map((o: any) => `${o.Code}: ${o.Msg}`).join(', ')
+              : 'Comprobante rechazado',
         };
       }
 
@@ -512,7 +544,7 @@ export class WSFEService {
         cae: detalle.CAE,
         caeVto: detalle.CAEFchVto,
         numeroComprobante,
-        tipoComprobante,  // Agregar el tipo de comprobante
+        tipoComprobante, // Agregar el tipo de comprobante
         fechaProceso: feResp.FeCabResp?.FchProceso,
         resultado: detalle.Resultado,
         observaciones: detalle.Observaciones?.Obs
@@ -588,12 +620,12 @@ export class WSFEService {
       if (result && result.FEParamGetPtosVentaResult) {
         const resultGet = result.FEParamGetPtosVentaResult.ResultGet;
         const puntosVenta = resultGet?.PtoVenta || [];
-        
+
         // Normalizar respuesta (puede venir como array o objeto único)
         const puntosArray = Array.isArray(puntosVenta) ? puntosVenta : [puntosVenta];
-        
+
         logger.info(`Puntos de venta parsed: ${puntosArray.length} puntos encontrados`);
-        
+
         return {
           success: true,
           data: puntosArray.map((pv: any) => ({
@@ -623,4 +655,3 @@ export class WSFEService {
 
 // Singleton
 export const wsfeService = new WSFEService();
-
